@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 #
-#  This file is part of oh-my-tuna
+#  This file is part of oh-my-xdlinux, 
+#  which is forked from oh-my-tuna.
+#  Copyright (c) 2019 fromddy wi24rd 
 #  Copyright (c) 2018 oh-my-tuna's authors
+#
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 3 of the License, or
@@ -16,73 +19,136 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+
+
+# test on Deepin 15.11 stable  :  class Deepin
+# test on  Kali :                 class Kali
+
+
+
+# 在python当中，我们通过标准库中的subprocess包来fork一个子进程，并运行一个外部的程序
 import subprocess
+
+# 在自动化测试中，经常需要查找操作文件，比如查找配置文件
+# 我们需要对于文件和路径进行大量操作
 import os
+
+# errno定义了许多的符号错误码
 import errno
+
+# 命令行参数解析
 import argparse
+
+# 正则表达式
 import re
+
+# 该模块用来访问平台相关属性
 import platform
+
+# 最常用的赛split()函数，用来分割字符串，通常与subprocess综合使用
+# shlex模块赛基于unix shell语法的语言提供的一个简单的lexer
+import shlex
+
+# 自定义上下文管理器，通过生成器实现
+# 省去了__enter__和__exit__来进行上下文管理
 from contextlib import contextmanager
+
+
 
 try:
    input = raw_input
 except NameError:
    pass
 
+
 try:
+# 用于操作配置文件
+# 该模块适用于配置文件的格式与windows ini 文件类似
     import configparser
 except ImportError:
+    # 这个应该是为了和python2匹配
     import ConfigParser as configparser
 
 
-mirror_root = "linux.xidian.edu.cn/mirrors"
-host_name = "tuna.tsinghua.edu.cn"
-always_yes = False
-verbose = False
-is_global = True
 
+
+mirror_root = "linux.xidian.edu.cn/mirrors"
+host_name = "linux.xidian.edu.cn"
+
+tuna_mirror_root = "mirrors.tuna.tsinghua.edu.cn"
+tuna_host_name = "tuna.tsinghua.edu.cn"
+
+always_yes = False
+
+# 设置运行时是否显示详细信息
+verbose = True
+
+is_global = False
+
+# ???  正则表达式的匹配
 os_release_regex = re.compile(r"^ID=\"?([^\"\n]+)\"?$", re.M)
 
 
 @contextmanager
 def cd(path):
+    # 查看当前所在路径
     old_cwd = os.getcwd()
+
+    # 改变当前工作目录到制定的目录
     os.chdir(path)
     try:
         yield
     finally:
+        # 回到之前的路径
         os.chdir(old_cwd)
 
 
 def sh(command):
     try:
+        # verbose 冗长的
+        # 如果是冗长的 那么就打印出所有的command命令信息
         if verbose:
             print('$ %s' % command)
+
+        # 如果command的类型是str,那么利用shelex函数将它分开
         if isinstance(command, str):
-            command = command.split()
-        return subprocess.check_output(command, stderr=subprocess.STDOUT).decode('utf-8').rstrip()
+            command = shlex.split(command)
+
+
+
+        # 调用subprocess函数来执行
+        # 在子进程执行命令，以字符串形式返回执行结果的输出。
+        # 如果子进程推出码不是0,抛出subprcess.CalledProcessError异常
+        # rstrip()删除字符串末尾的制定字符（默认为空格）
+        return subprocess.check_output(command,stderr=subprocess.STDOUT).decode('utf-8').rstrip()
+
     except Exception as e:
         return None
 
 
+# 用户权利的提升
 def user_prompt():
+    # 对于全局变量进行修改
     global always_yes
     if always_yes:
         return True
-
     ans = input('Do you wish to proceed(y/n/a):')
     if ans == 'a':
         always_yes = True
+
     return ans != 'n'
 
 
 def ask_if_change(name, expected, command_read, command_set):
+    
     current = sh(command_read)
+
     if current != expected:
         print('%s Before:' % name)
         print(current)
         print('%s After:' % name)
         print(expected)
+
         if user_prompt():
             sh(command_set)
             print('Command %s succeeded' % command_set)
@@ -90,13 +156,15 @@ def ask_if_change(name, expected, command_read, command_set):
         else:
             return False
     else:
-        print('%s is already configured to TUNA mirrors' % name)
+        print('%s is already configured to xdlinux mirrors' % name)
         return True
+
 
 
 def get_linux_distro():
     os_release = sh('cat /etc/os-release')
     if not os_release:
+        print('your os is not included! (forgive my pool English =_=)')
         return None
     match = re.findall(os_release_regex, os_release)
     if len(match) != 1:
@@ -104,6 +172,7 @@ def get_linux_distro():
     return match[0]
 
 
+# 添加环境变量
 def set_env(key, value):
     shell = os.environ.get('SHELL').split('/')[-1]
     if shell == 'bash' or shell == 'sh':
@@ -116,8 +185,10 @@ def set_env(key, value):
         print('Please set %s=%s' % (key, value))
 
 
+# 移除环境变量
 def remove_env(key):
     shell = os.environ.get('SHELL').split('/')[-1]
+     
     if shell == 'bash' or shell == 'sh':
         pattern = "^export %s=" % key
         profile = "~/.profile"
@@ -126,10 +197,16 @@ def remove_env(key):
         profile = "~/.zprofile"
     if pattern:
         profile = os.path.expanduser(profile)
+        # sed 命令的用法
         if platform.system() == 'Darwin': # TODO: More BSD systems
             sed = ['sed', '-i', "", "/%s/d" % pattern, profile]
+
+
         else:
             sed = ['sed', '-i', "/%s/d" % pattern, profile]
+
+
+
         sh(sed)
         return True
     else:
@@ -137,6 +214,8 @@ def remove_env(key):
         return False
 
 
+
+# 建立一个新的文件夹
 def mkdir_p(path):
     try:
         os.makedirs(path)
@@ -153,6 +232,7 @@ class Base(object):
     Name of this mirror/module
     """
 
+    # 实现了静态方法f,从而可以实现实例化使用C().f(),当然也可以不实例化调用该方法C.f()
     @staticmethod
     def name():
         raise NotImplementedError
@@ -203,6 +283,7 @@ class Base(object):
         assert level in levels
 
         global verbose
+
         if level == 'v' and verbose:
             return
 
@@ -222,19 +303,23 @@ class Base(object):
         print('%s[%s]: %s%s' % (color_prefix[level], cls.name(), msg, color_suffix))
 
 
+
+
 class Pypi(Base):
     #mirror_url = 'https://pypi.%s/simple' % host_name
-    mirror_url = 'https://linux.xidian.edu.cn/mirrors/pypi/web/simple/'
+    mirror_url = 'https://linux.xidian.edu.cn/mirrors/pypi/web/simple/' 
     """
     Reference: https://pip.pypa.io/en/stable/user_guide/#configuration
     """
     @staticmethod
     def config_files():
         system = platform.system()
+
         if system == 'Darwin':
             return ('$HOME/Library/Application Support/pip/pip.conf', '$HOME/.pip/pip.conf')
         elif system == 'Windows':
             return ('%APPDATA%\pip\pip.ini', '~\pip\pip.ini')
+
         elif system == 'Linux':
             return ('$HOME/.config/pip/pip.conf', '$HOME/.pip/pip.conf')
 
@@ -256,7 +341,9 @@ class Pypi(Base):
     @staticmethod
     def is_online():
         pattern = re.compile(r' *index-url *= *%s' % Pypi.mirror_url)
+
         config_files = Pypi.config_files()
+
         for conf_file in config_files:
             if not os.path.exists(os.path.expandvars(conf_file)):
                 continue
@@ -270,9 +357,13 @@ class Pypi(Base):
     @staticmethod
     def up():
         config_file = os.path.expandvars(Pypi.config_files()[0])
+
         config = configparser.ConfigParser()
+
         if os.path.exists(config_file):
             config.read(config_file)
+        
+
         if not config.has_section('global'):
             config.add_section('global')
         if not os.path.isdir(os.path.dirname(config_file)):
@@ -287,6 +378,7 @@ class Pypi(Base):
     def down():
         config_files = map(os.path.expandvars, Pypi.config_files())
         config = configparser.ConfigParser()
+
         for path in config_files:
             if not os.path.exists(path):
                 continue
@@ -294,11 +386,16 @@ class Pypi(Base):
             try:
                 if config.get('global', 'index-url') == Pypi.mirror_url:
                     config.remove_option('global', 'index-url')
+
                 with open(path, 'w') as f:
                     config.write(f)
+
             except (configparser.NoOptionError, configparser.NoSectionError):
                 pass
+
         return True
+
+
 
 
 class ArchLinux(Base):
@@ -332,7 +429,7 @@ class ArchLinux(Base):
         mirror_re = re.compile(
             r" *(# *)?Server *= *(http|https)://%s/archlinux/\$repo/os/\$path\n"
             % mirror_root, re.M)
-        banner = '# Generated and managed by the awesome oh-my-tuna\n'
+        banner = '# Generated and managed by the awesome oh-my-xdlinux\n'
         target = "Server = https://%s/archlinux/$repo/os/$path\n\n" % mirror_root
 
         print(
@@ -370,7 +467,7 @@ class ArchLinux(Base):
     @staticmethod
     def down():
         print(
-            'This action will comment out TUNA mirrors from your pacman mirrorlist, if there is any.'
+            'This action will comment out xdlinux mirrors from your pacman mirrorlist, if there is any.'
         )
         if not user_prompt():
             return False
@@ -402,6 +499,7 @@ class Homebrew(Base):
         global is_global
         if not is_global:
             return False
+
         return sh('brew --repo') is not None
 
     @staticmethod
@@ -477,8 +575,10 @@ class CTAN(Base):
 
         return sh(
             '%s option repository' % base
-        ) == 'Default package repository (repository): https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/tlnet'
+        ) == 'Default package repository (repository): https://linux.xidian.edu.cn/mirrors/CTAN/systems/texlive/tlnet'
+        # == 'Default package repository (repository): https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/tlnet'
 
+            
     @staticmethod
     def up():
         global is_global
@@ -488,15 +588,21 @@ class CTAN(Base):
 
         return ask_if_change(
             'CTAN mirror',
-            'Default package repository (repository): https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/tlnet',
+
+            'Default package repository (repository): https://linux.xidian.edu.cn/mirrors/CTAN/systems/texlive/tlnet',
+           # 'Default package repository (repository): https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/tlnet',
+            
             '%s option repository' % base,
-            '%s option repository https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/tlnet' % base
+            
+            '%s option repository https://linux.xidian.edu.cn/mirrors/CTAN/systems/texlive/tlnet' %base
+            #'%s option repository https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/tlnet' % base
+
         )
 
 
 class Anaconda(Base):
-    url_free = 'https://%s/anaconda/pkgs/free/' % mirror_root
-    url_main = 'https://%s/anaconda/pkgs/main/' % mirror_root
+    url_free = 'https://%s/anaconda/pkgs/free/' % tuna_mirror_root
+    url_main = 'https://%s/anaconda/pkgs/main/' % tuna_mirror_root
 
 
     @staticmethod
@@ -524,6 +630,7 @@ class Anaconda(Base):
                 in_channels += 1
             elif Anaconda.url_main in line:
                 in_channels += 1
+
         return in_channels == 2
 
 
@@ -589,31 +696,39 @@ class Debian(Base):
         with open('/etc/apt/sources.list', 'r') as sl:
             content = sl.read();
             return content == cls.build_template(cls.build_mirrorspec())
-
+        
     @classmethod
     def up(cls):
-        print('This operation will move your current sources.list to sources.on-my-tuna.bak.list,\n' + \
-              'and use TUNA apt source instead.')
+        print('This operation will move your current sources.list to sources.list.bak\n' + \
+              'and use xdlinux apt source instead.')
+
         if not user_prompt():
             return False
+
         if os.path.isfile('/etc/apt/sources.list'):
-            sh('cp /etc/apt/sources.list /etc/apt/sources.oh-my-tuna.bak.list')
+            sh('cp /etc/apt/sources.list /etc/apt/sources.list.bak')
+
         with open('/etc/apt/sources.list', 'w') as sl:
             sl.write(cls.build_template(cls.build_mirrorspec()))
         return True
 
     @classmethod
     def down(cls):
-        print('This operation will copy sources.on-my-tuna.bak.list to sources.list if there is one,\n' + \
-              'otherwise build a new sources.list with archive.ubuntu.com as its mirror root.')
+        print('This operation will copy sources.list.bak to sources.list if there is one,\n')
+
         if not user_prompt():
             return False
-        if os.path.isfile('/etc/apt/sources.oh-my-tuna.bak.list'):
-            if sh('cp /etc/apt/sources.oh-my-tuna.bak.list /etc/apt/sources.list') is not None:
+
+        if os.path.isfile('/etc/apt/sources.list.bak'):
+            if sh('cp /etc/apt/sources.list.bak /etc/apt/sources.list') is not None:
                 return True
+
         with open('/etc/apt/sources.list', 'w') as sl:
             sl.write(cls.build_template(cls.default_sources))
         return True
+
+
+
 
 
 class Ubuntu(Debian):
@@ -637,6 +752,97 @@ class Ubuntu(Debian):
             return False
         return os.path.isfile(
             '/etc/apt/sources.list') and get_linux_distro() == 'ubuntu'
+
+
+
+class Kali(Debian):
+
+    pools = "kali-rolling main non-free contrib"
+    
+    @staticmethod
+    def build_mirrorspec():
+        return {
+            'http://'+mirror_root+'/kali/',
+            }
+
+
+    @classmethod
+    def build_template(cls, mirrorspecs):
+
+        lines = ['%s %s %s\n' % (repoType, mirror, cls.pools)
+                    for mirror in mirrorspecs
+                    for repoType in ['deb', 'deb-src']]
+        tmpl = ''.join(lines)
+        print(tmpl)
+        return tmpl
+
+    @staticmethod
+    def name():
+        return 'Kali'
+
+
+    @staticmethod
+    def is_applicable():
+        global is_global
+
+        if not is_global:
+            return False
+        return os.path.isfile(
+            '/etc/apt/sources.list') and get_linux_distro() == 'kali'
+
+
+
+    @classmethod
+    def is_online(cls):
+        with open('/etc/apt/sources.list', 'r') as sl:
+            content = sl.read()
+        return content == cls.build_template(cls.build_mirrorspec())
+
+
+
+class Deepin(Debian):
+    pools = "unstable main contrib non-free" 
+    @staticmethod
+    def build_mirrorspec():
+        return {
+                'deb [by-hash=force] http://linux.xidian.edu.cn/mirrors/deepin',
+                '#deb-src http://linux.xidian.edu.cn/mirrors/deepin', 
+            }
+
+# 将build_mirrorspec() 传入build_template 镜像顺序会颠倒 不知道为什么
+
+    @classmethod
+    def build_template(cls, mirrorspecs):
+
+        lines=[
+                'deb [by-hash=force] http://linux.xidian.edu.cn/mirrors/deepin\n',
+                '#deb-src http://linux.xidian.edu.cn/mirrors/deepin\n', 
+            ]
+        tmpl = ''.join(lines)
+        return tmpl
+
+    @staticmethod
+    def name():
+        return 'Deepin'
+
+
+    @staticmethod
+    def is_applicable():
+        global is_global
+
+        if not is_global:
+            return False
+        
+        return os.path.isfile(
+            '/etc/apt/sources.list') and get_linux_distro() == 'deepin'
+
+    @classmethod
+    def is_online(cls):
+        with open('/etc/apt/sources.list', 'r') as sl:
+            content = sl.read()
+
+        return content == cls.build_template(cls.build_mirrorspec())
+
 
 
 class CentOS(Base):
@@ -684,31 +890,36 @@ class CentOS(Base):
         return True
 
 
-MODULES = [ArchLinux, Homebrew, CTAN, Pypi, Anaconda, Debian, Ubuntu, CentOS]
-
+MODULES = [ArchLinux, Homebrew, CTAN, Pypi, Anaconda, Debian, Ubuntu, Kali, Deepin, CentOS]
+#MODULES = [ Homebrew, CTAN, Pypi, Anaconda]
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Use TUNA mirrors everywhere when applicable')
+        description='Use xdlinux mirrors everywhere when applicable')
     parser.add_argument(
         'subcommand',
         nargs='?',
         metavar='SUBCOMMAND',
         choices=['up', 'down', 'status'],
         default='up')
+
     parser.add_argument(
         '-v', '--verbose', help='verbose output', action='store_true')
+
     parser.add_argument(
         '-y',
         '--yes',
         help='always answer yes to questions',
         action='store_true')
+
     parser.add_argument(
         '-g',
         '--global',
         dest='is_global',
         help='apply system-wide changes. This option may affect applicability of some modules.',
         action='store_true')
+
+
 
     args = parser.parse_args()
     global verbose
@@ -717,10 +928,22 @@ def main():
     always_yes = args.yes
     global is_global
     is_global = args.is_global
+    
+
 
     if args.subcommand == 'up':
         for m in MODULES:
+
+            if not m.is_applicable() and verbose: 
+                m.log('software is not applicable')
+                print()
+
+
             if m.is_applicable():
+
+                if(m.is_online()):
+                    m.log('mirror is online','i')
+                    
                 if not m.is_online():
                     m.log('Activating...')
                     try:
@@ -734,9 +957,15 @@ def main():
                             'Mirror doesn\'t support activation. Please activate manually'
                         , 'e')
 
+
     if args.subcommand == 'down':
         for m in MODULES:
+            
             if m.is_applicable():
+            
+                if not m.is_online():
+                    m.log('mirror is not online','i')
+
                 if m.is_online():
                     m.log('Deactivating...')
                     try:
@@ -749,6 +978,10 @@ def main():
                         m.log(
                             'Mirror doesn\'t support deactivation. Please deactivate manually'
                         , 'e')
+            elif verbose:
+                m.log('software is not applicable','i')
+                print()
+
 
     if args.subcommand == 'status':
         for m in MODULES:
@@ -761,3 +994,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
