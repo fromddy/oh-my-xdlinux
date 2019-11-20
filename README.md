@@ -8,6 +8,7 @@ Usage
 
 The simple way:
 ```bash
+最新版本还没有上传到这个网站
 wget https://rawgit.com/xdlinux/oh-my-xdlinux/master/oh-my-xdlinux.py
 python oh-my-xdlinux.py
 ```
@@ -22,20 +23,28 @@ Get help:
 python oh-my-xdlinux.py -h
 ```
 
+
 Coverage
 =========================
- - Anaconda
- - Arch Linux
- - CTAN
- - Debian
  - Homebrew
+ - CTAN
+ - Anaconda
  - PyPI
- - Ubuntu
+ - CTAN
  - TeX Live (by tlmgr)
+ - Arch Linux
+ - Debian
+ - Ubuntu
+ - Kali
+ - Deepin
+ - Centos
+
+
+ 
  
 TODO
 ========================
-
+do more test on different platforms
  
 
 License
