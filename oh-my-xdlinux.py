@@ -20,37 +20,19 @@
 #
 
 
+# test log 
+# MODULES = [ArchLinux, Homebrew, CTAN, Pypi, Anaconda, Debian, Ubuntu, Kali, Deepin, CentOS]
+# test on Deepin 15.11 stable  :  Deepin
+# test on  Kali :                 Kali Anaconda Pypi
+# test on ubuntu16.04 LTS :       Ubuntu 
 
-# test on Deepin 15.11 stable  :  class Deepin
-# test on  Kali :                 class Kali
-
-
-
-# 在python当中，我们通过标准库中的subprocess包来fork一个子进程，并运行一个外部的程序
 import subprocess
-
-# 在自动化测试中，经常需要查找操作文件，比如查找配置文件
-# 我们需要对于文件和路径进行大量操作
 import os
-
-# errno定义了许多的符号错误码
 import errno
-
-# 命令行参数解析
 import argparse
-
-# 正则表达式
 import re
-
-# 该模块用来访问平台相关属性
 import platform
-
-# 最常用的赛split()函数，用来分割字符串，通常与subprocess综合使用
-# shlex模块赛基于unix shell语法的语言提供的一个简单的lexer
 import shlex
-
-# 自定义上下文管理器，通过生成器实现
-# 省去了__enter__和__exit__来进行上下文管理
 from contextlib import contextmanager
 
 
@@ -62,8 +44,6 @@ except NameError:
 
 
 try:
-# 用于操作配置文件
-# 该模块适用于配置文件的格式与windows ini 文件类似
     import configparser
 except ImportError:
     # 这个应该是为了和python2匹配
@@ -79,70 +59,44 @@ tuna_mirror_root = "mirrors.tuna.tsinghua.edu.cn"
 tuna_host_name = "tuna.tsinghua.edu.cn"
 
 always_yes = False
-
-# 设置运行时是否显示详细信息
 verbose = True
-
 is_global = False
-
-# ???  正则表达式的匹配
 os_release_regex = re.compile(r"^ID=\"?([^\"\n]+)\"?$", re.M)
 
 
 @contextmanager
 def cd(path):
-    # 查看当前所在路径
     old_cwd = os.getcwd()
-
-    # 改变当前工作目录到制定的目录
     os.chdir(path)
     try:
         yield
     finally:
-        # 回到之前的路径
         os.chdir(old_cwd)
 
 
 def sh(command):
     try:
-        # verbose 冗长的
-        # 如果是冗长的 那么就打印出所有的command命令信息
         if verbose:
             print('$ %s' % command)
-
-        # 如果command的类型是str,那么利用shelex函数将它分开
         if isinstance(command, str):
             command = shlex.split(command)
-
-
-
-        # 调用subprocess函数来执行
-        # 在子进程执行命令，以字符串形式返回执行结果的输出。
-        # 如果子进程推出码不是0,抛出subprcess.CalledProcessError异常
-        # rstrip()删除字符串末尾的制定字符（默认为空格）
         return subprocess.check_output(command,stderr=subprocess.STDOUT).decode('utf-8').rstrip()
-
     except Exception as e:
         return None
 
 
-# 用户权利的提升
 def user_prompt():
-    # 对于全局变量进行修改
     global always_yes
     if always_yes:
         return True
     ans = input('Do you wish to proceed(y/n/a):')
     if ans == 'a':
         always_yes = True
-
     return ans != 'n'
 
 
 def ask_if_change(name, expected, command_read, command_set):
-    
     current = sh(command_read)
-
     if current != expected:
         print('%s Before:' % name)
         print(current)
@@ -172,7 +126,6 @@ def get_linux_distro():
     return match[0]
 
 
-# 添加环境变量
 def set_env(key, value):
     shell = os.environ.get('SHELL').split('/')[-1]
     if shell == 'bash' or shell == 'sh':
@@ -185,7 +138,6 @@ def set_env(key, value):
         print('Please set %s=%s' % (key, value))
 
 
-# 移除环境变量
 def remove_env(key):
     shell = os.environ.get('SHELL').split('/')[-1]
      
@@ -197,15 +149,10 @@ def remove_env(key):
         profile = "~/.zprofile"
     if pattern:
         profile = os.path.expanduser(profile)
-        # sed 命令的用法
         if platform.system() == 'Darwin': # TODO: More BSD systems
             sed = ['sed', '-i', "", "/%s/d" % pattern, profile]
-
-
         else:
             sed = ['sed', '-i', "/%s/d" % pattern, profile]
-
-
 
         sh(sed)
         return True
@@ -215,7 +162,6 @@ def remove_env(key):
 
 
 
-# 建立一个新的文件夹
 def mkdir_p(path):
     try:
         os.makedirs(path)
@@ -231,8 +177,6 @@ class Base(object):
     """
     Name of this mirror/module
     """
-
-    # 实现了静态方法f,从而可以实现实例化使用C().f(),当然也可以不实例化调用该方法C.f()
     @staticmethod
     def name():
         raise NotImplementedError
@@ -554,6 +498,7 @@ class Homebrew(Base):
         return remove_env('HOMEBREW_BOTTLE_DOMAIN')
 
 
+
 class CTAN(Base):
     @staticmethod
     def name():
@@ -729,8 +674,6 @@ class Debian(Base):
 
 
 
-
-
 class Ubuntu(Debian):
     default_sources = { 'http://archive.ubuntu.com/ubuntu': ['', '-updates', '-security', '-backports'] }
     pools = "main multiverse universe restricted"
@@ -810,7 +753,6 @@ class Deepin(Debian):
             }
 
 # 将build_mirrorspec() 传入build_template 镜像顺序会颠倒 不知道为什么
-
     @classmethod
     def build_template(cls, mirrorspecs):
 
@@ -891,7 +833,6 @@ class CentOS(Base):
 
 
 MODULES = [ArchLinux, Homebrew, CTAN, Pypi, Anaconda, Debian, Ubuntu, Kali, Deepin, CentOS]
-#MODULES = [ Homebrew, CTAN, Pypi, Anaconda]
 
 def main():
     parser = argparse.ArgumentParser(
