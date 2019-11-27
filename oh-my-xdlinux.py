@@ -51,7 +51,6 @@ except ImportError:
 
 
 
-
 mirror_root = "linux.xidian.edu.cn/mirrors"
 host_name = "linux.xidian.edu.cn"
 
@@ -748,8 +747,9 @@ class Deepin(Debian):
     @staticmethod
     def build_mirrorspec():
         return {
-                'deb [by-hash=force] http://linux.xidian.edu.cn/mirrors/deepin',
-                '#deb-src http://linux.xidian.edu.cn/mirrors/deepin', 
+
+                'deb [by-hash=force] http://linux.xidian.edu.cn/mirrors/deepin unstable main contrib non-free',
+                '#deb-src http://linux.xidian.edu.cn/mirrors/deepin unstable main contrib non-free',
             }
 
 # 将build_mirrorspec() 传入build_template 镜像顺序会颠倒 不知道为什么
@@ -757,8 +757,9 @@ class Deepin(Debian):
     def build_template(cls, mirrorspecs):
 
         lines=[
-                'deb [by-hash=force] http://linux.xidian.edu.cn/mirrors/deepin\n',
-                '#deb-src http://linux.xidian.edu.cn/mirrors/deepin\n', 
+
+                'deb [by-hash=force] http://linux.xidian.edu.cn/mirrors/deepin unstable main contrib non-free\n',
+                '#deb-src http://linux.xidian.edu.cn/mirrors/deepin unstable main contrib non-free\n',
             ]
         tmpl = ''.join(lines)
         return tmpl
